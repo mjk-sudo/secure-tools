@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Format Converter — SecureTools</title>
+    <meta name="description" content="Convert text between binary, hexadecimal, Base64, decimal ASCII, and octal formats instantly in your browser.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="motion.css">
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="common.js" defer></script>
+    <script src="motion.js" defer></script>
+</head>
+<body>
+    <div class="preloader" id="preloader"><div class="preloader-brand">SecureTools</div><div class="preloader-bar-track"><div class="preloader-bar"></div></div></div>
+    <div class="header"></div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Multi-Format Converter</h1>
+            <p class="subtitle">Convert plain text to various encoding formats and decode them back.</p>
+
+            <div class="nav-tabs">
+                <button id="btn-binary" class="active" onclick="setFmt('binary')">Binary</button>
+                <button id="btn-hex" onclick="setFmt('hex')">Hex</button>
+                <button id="btn-base64" onclick="setFmt('base64')">Base64</button>
+                <button id="btn-decimal" onclick="setFmt('decimal')">Decimal</button>
+                <button id="btn-octal" onclick="setFmt('octal')">Octal</button>
+            </div>
+
+            <div class="form-group">
+                <h3>Input</h3>
+                <textarea id="input-text" placeholder="Enter text or encoded string..." rows="5"></textarea>
+            </div>
+
+            <div class="between">
+                <label>Format: <strong id="fmt-label" style="color:var(--primary)">Binary</strong></label>
+                <div style="display:flex;gap:8px">
+                    <button class="btn-primary" onclick="encode()">Text → Format</button>
+                    <button class="btn-secondary" onclick="decode()">Format → Text</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <h3>Result <button class="btn-copy" onclick="copyToClipboard('output-text')">Copy</button></h3>
+                <textarea id="output-text" placeholder="Output will appear here..." rows="5" readonly></textarea>
+            </div>
+
+            <div style="text-align:right;margin-top:12px"><button class="btn-clear" onclick="document.getElementById('input-text').value='';document.getElementById('output-text').value='';showToast('Cleared')">Clear</button></div>
+
+            <div class="info">
+                <h4>Format Reference</h4>
+                <p><b>Binary</b> — 8-bit per character, space-separated. <b>Hex</b> — Base-16 byte codes. <b>Base64</b> — Standard encoding for binary-to-text. <b>Decimal</b> — ASCII code points. <b>Octal</b> — Base-8 byte codes.</p>
+            </div>
+        </div>
+    </div>
+    <div class="footer"></div>
+
+    <script>
+        let fmt = 'binary';
+        const labels = { binary:'Binary', hex:'Hexadecimal', base64:'Base64', decimal:'Decimal', octal:'Octal' };
+
+        function setFmt(f) {
+            fmt = f;
+            ['binary','hex','base64','decimal','octal'].forEach(k => {
+                document.getElementById('btn-'+k).classList.toggle('active', k===f);
+            });
+            document.getElementById('fmt-label').textContent = labels[f];
+        }
+
+        function encode() {
+            const v = document.getElementById('input-text').value;
+            if (!v) { showToast('Enter input text', true); return; }
+            let r = '';
+            try {
+                switch(fmt) {
+                    case 'binary': r = [...v].map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join(' '); break;
+                    case 'hex': r = [...v].map(c => c.charCodeAt(0).toString(16).padStart(2,'0')).join(' '); break;
+                    case 'base64': r = btoa(unescape(encodeURIComponent(v))); break;
+                    case 'decimal': r = [...v].map(c => c.charCodeAt(0)).join(' '); break;
+                    case 'octal': r = [...v].map(c => c.charCodeAt(0).toString(8)).join(' '); break;
+                }
+                document.getElementById('output-text').value = r;
+                logAction('Convert', fmt.toUpperCase() + ' encode: ' + v);
+                showToast('Encoded successfully');
+            } catch(e) { showToast('Encoding error: ' + e.message, true); }
+        }
+
+        function decode() {
+            const v = document.getElementById('input-text').value.trim();
+            if (!v) { showToast('Enter encoded text', true); return; }
+            let r = '';
+            try {
+                switch(fmt) {
+                    case 'binary': r = v.split(/\s+/).map(s => String.fromCharCode(parseInt(s,2))).join(''); break;
+                    case 'hex': r = v.split(/\s+/).map(s => String.fromCharCode(parseInt(s,16))).join(''); break;
+                    case 'base64': r = decodeURIComponent(escape(atob(v))); break;
+                    case 'decimal': r = v.split(/\s+/).map(s => String.fromCharCode(parseInt(s,10))).join(''); break;
+                    case 'octal': r = v.split(/\s+/).map(s => String.fromCharCode(parseInt(s,8))).join(''); break;
+                }
+                document.getElementById('output-text').value = r;
+                logAction('Decode', fmt.toUpperCase() + ' decode');
+                showToast('Decoded successfully');
+            } catch(e) { showToast('Decoding error: ' + e.message, true); }
+        }
+    </script>
+</body>
+</html>

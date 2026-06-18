@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Encoder & Decoder — SecureTools</title>
+    <meta name="description" content="URL encode, HTML entity escape, and Base64 format text for safe web transmission.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="motion.css">
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="common.js" defer></script>
+    <script src="motion.js" defer></script>
+</head>
+<body>
+    <div class="preloader" id="preloader"><div class="preloader-brand">SecureTools</div><div class="preloader-bar-track"><div class="preloader-bar"></div></div></div>
+    <div class="header"></div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Web Encoder & Decoder</h1>
+            <p class="subtitle">Encode text for safe use in URLs, HTML, or Base64 data streams.</p>
+
+            <div class="nav-tabs">
+                <button id="btn-url" class="active" onclick="setType('url')">URL</button>
+                <button id="btn-html" onclick="setType('html')">HTML Entities</button>
+                <button id="btn-base64" onclick="setType('base64')">Base64</button>
+            </div>
+
+            <div class="form-group">
+                <h3>Input</h3>
+                <textarea id="input-text" placeholder="Enter text or encoded string..." rows="5"></textarea>
+            </div>
+
+            <div class="between">
+                <label>Mode: <strong id="type-label" style="color:var(--primary)">URL</strong></label>
+                <div style="display:flex;gap:8px">
+                    <button class="btn-primary" onclick="runEncode()">Encode</button>
+                    <button class="btn-secondary" onclick="runDecode()">Decode</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <h3>Result <button class="btn-copy" onclick="copyToClipboard('output-text')">Copy</button></h3>
+                <textarea id="output-text" placeholder="Output will appear here..." rows="5" readonly></textarea>
+            </div>
+
+            <div style="text-align:right;margin-top:12px"><button class="btn-clear" onclick="document.getElementById('input-text').value='';document.getElementById('output-text').value='';showToast('Cleared')">Clear</button></div>
+
+            <div class="info">
+                <h4>How it works</h4>
+                <p><b>URL</b> — Converts special characters to percent-encoded form (%20, %26) for HTTP parameters.</p>
+                <p><b>HTML Entities</b> — Escapes angle brackets and ampersands to prevent XSS injection attacks.</p>
+                <p><b>Base64</b> — Encodes binary data into a printable ASCII string for embedding in markup or email.</p>
+            </div>
+        </div>
+    </div>
+    <div class="footer"></div>
+
+    <script>
+        let type = 'url';
+        function setType(t) {
+            type = t;
+            ['url','html','base64'].forEach(k => document.getElementById('btn-'+k).classList.toggle('active', k===t));
+            document.getElementById('type-label').textContent = {url:'URL',html:'HTML Entities',base64:'Base64'}[t];
+        }
+
+        function runEncode() {
+            const v = document.getElementById('input-text').value;
+            if (!v) { showToast('Enter text to encode', true); return; }
+            let r = '';
+            try {
+                if (type === 'url') r = encodeURIComponent(v);
+                else if (type === 'html') r = v.replace(/[\u00A0-\u9999<>&"']/g, c => '&#'+c.charCodeAt(0)+';');
+                else r = btoa(unescape(encodeURIComponent(v)));
+                document.getElementById('output-text').value = r;
+                logAction('Encode', type.toUpperCase() + ': ' + v);
+                showToast('Encoded');
+            } catch(e) { showToast('Error: ' + e.message, true); }
+        }
+
+        function runDecode() {
+            const v = document.getElementById('input-text').value.trim();
+            if (!v) { showToast('Enter text to decode', true); return; }
+            let r = '';
+            try {
+                if (type === 'url') r = decodeURIComponent(v);
+                else if (type === 'html') { const t = document.createElement('textarea'); t.innerHTML = v; r = t.value; }
+                else r = decodeURIComponent(escape(atob(v)));
+                document.getElementById('output-text').value = r;
+                logAction('Decode', type.toUpperCase() + ' decode');
+                showToast('Decoded');
+            } catch(e) { showToast('Error: ' + e.message, true); }
+        }
+    </script>
+</body>
+</html>

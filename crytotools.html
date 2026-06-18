@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ciphers & Encryption — SecureTools</title>
+    <meta name="description" content="Encrypt and decrypt using AES-256, Caesar shift, or Vigenère polyalphabetic ciphers — fully offline.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="motion.css">
+    <script src="AEScrypto.js"></script>
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="common.js" defer></script>
+    <script src="motion.js" defer></script>
+</head>
+<body>
+    <div class="preloader" id="preloader"><div class="preloader-brand">SecureTools</div><div class="preloader-bar-track"><div class="preloader-bar"></div></div></div>
+    <div class="header"></div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Ciphers & Encryption</h1>
+            <p class="subtitle">Symmetric encryption using industry-standard AES or classical shift ciphers.</p>
+
+            <div class="nav-tabs">
+                <button id="tab-caesar" class="active" onclick="sw('caesar')">Caesar</button>
+                <button id="tab-vigenere" onclick="sw('vigenere')">Vigenère</button>
+                <button id="tab-aes" onclick="sw('aes')">AES-256</button>
+            </div>
+
+            <div id="caesar-tool">
+                <h2>Caesar Cipher</h2>
+                <div class="form-group"><h3>Input</h3><textarea id="in-caesar" placeholder="Enter text..." rows="4"></textarea></div>
+                <div class="between">
+                    <label>Shift key (1-25): <input type="number" id="caesar-key" min="1" max="25" value="3"></label>
+                    <div style="display:flex;gap:8px"><button class="btn-primary" onclick="caesar(true)">Encrypt</button><button class="btn-secondary" onclick="caesar(false)">Decrypt</button></div>
+                </div>
+                <div class="form-group"><h3>Result <button class="btn-copy" onclick="copyToClipboard('out-caesar')">Copy</button></h3><textarea id="out-caesar" readonly rows="4" placeholder="Output..."></textarea></div>
+            </div>
+
+            <div id="vigenere-tool" style="display:none">
+                <h2>Vigenère Cipher</h2>
+                <div class="form-group"><h3>Input</h3><textarea id="in-vig" placeholder="Enter text..." rows="4"></textarea></div>
+                <div class="between">
+                    <label>Keyword: <input type="text" id="vig-key" value="KEY" style="width:140px;text-transform:uppercase"></label>
+                    <div style="display:flex;gap:8px"><button class="btn-primary" onclick="vig(true)">Encrypt</button><button class="btn-secondary" onclick="vig(false)">Decrypt</button></div>
+                </div>
+                <div class="form-group"><h3>Result <button class="btn-copy" onclick="copyToClipboard('out-vig')">Copy</button></h3><textarea id="out-vig" readonly rows="4" placeholder="Output..."></textarea></div>
+            </div>
+
+            <div id="aes-tool" style="display:none">
+                <h2>AES-256 Encryption</h2>
+                <div class="form-group"><h3>Input</h3><textarea id="in-aes" placeholder="Plaintext or ciphertext..." rows="4"></textarea></div>
+                <div class="between">
+                    <label>Passphrase: <input type="text" id="aes-key" value="" placeholder="Enter key..." style="width:180px"></label>
+                    <div style="display:flex;gap:8px"><button class="btn-primary" onclick="aes(true)">Encrypt</button><button class="btn-secondary" onclick="aes(false)">Decrypt</button></div>
+                </div>
+                <div class="form-group"><h3>Result <button class="btn-copy" onclick="copyToClipboard('out-aes')">Copy</button></h3><textarea id="out-aes" readonly rows="4" placeholder="Output..."></textarea></div>
+            </div>
+
+            <div class="info">
+                <h4>About these ciphers</h4>
+                <p><b>Caesar</b> — Simple letter-shift by a fixed key. Educational, easily breakable.</p>
+                <p><b>Vigenère</b> — Polyalphabetic shift using a keyword. Stronger than Caesar but vulnerable to frequency analysis.</p>
+                <p><b>AES-256</b> — Industry-standard symmetric encryption. Used globally for securing data at rest and in transit.</p>
+            </div>
+        </div>
+    </div>
+    <div class="footer"></div>
+
+    <script>
+        function sw(t) {
+            ['caesar','vigenere','aes'].forEach(k => {
+                document.getElementById(k+'-tool').style.display = k===t ? 'block' : 'none';
+                document.getElementById('tab-'+k).classList.toggle('active', k===t);
+            });
+        }
+
+        function caesar(enc) {
+            const v = document.getElementById('in-caesar').value;
+            let k = parseInt(document.getElementById('caesar-key').value);
+            if (!v) { showToast('Enter text', true); return; }
+            if (isNaN(k)||k<1||k>25) { showToast('Key must be 1-25', true); return; }
+            if (!enc) k = 26 - k;
+            let r = '';
+            for (let i = 0; i < v.length; i++) {
+                const c = v.charCodeAt(i);
+                if (c>=65&&c<=90) r += String.fromCharCode(((c-65+k)%26)+65);
+                else if (c>=97&&c<=122) r += String.fromCharCode(((c-97+k)%26)+97);
+                else r += v[i];
+            }
+            document.getElementById('out-caesar').value = r;
+            logAction(enc?'Caesar Encrypt':'Caesar Decrypt', v.length + ' chars, shift ' + (enc?k:26-k));
+            showToast(enc?'Encrypted':'Decrypted');
+        }
+
+        function vig(enc) {
+            const v = document.getElementById('in-vig').value;
+            let k = document.getElementById('vig-key').value.toUpperCase().replace(/[^A-Z]/g,'');
+            if (!v) { showToast('Enter text', true); return; }
+            if (!k) { showToast('Enter keyword', true); return; }
+            let r = '', ki = 0;
+            for (let i = 0; i < v.length; i++) {
+                const c = v.charCodeAt(i);
+                const isU = c>=65&&c<=90, isL = c>=97&&c<=122;
+                if (isU||isL) {
+                    const off = isU?65:97;
+                    const s = k.charCodeAt(ki%k.length)-65;
+                    const es = enc?s:(26-s)%26;
+                    r += String.fromCharCode(((c-off+es)%26)+off);
+                    ki++;
+                } else r += v[i];
+            }
+            document.getElementById('out-vig').value = r;
+            logAction(enc?'Vigenere Encrypt':'Vigenere Decrypt', v.length + ' chars');
+            showToast(enc?'Encrypted':'Decrypted');
+        }
+
+        function aes(enc) {
+            const v = document.getElementById('in-aes').value;
+            const k = document.getElementById('aes-key').value;
+            if (typeof CryptoJS==='undefined') { showToast('CryptoJS not loaded', true); return; }
+            if (!v) { showToast('Enter text', true); return; }
+            if (!k) { showToast('Enter passphrase', true); return; }
+            try {
+                if (enc) {
+                    document.getElementById('out-aes').value = CryptoJS.AES.encrypt(v,k).toString();
+                    logAction('AES Encrypt', v.length + ' chars encrypted');
+                    showToast('AES encrypted');
+                } else {
+                    const d = CryptoJS.AES.decrypt(v,k).toString(CryptoJS.enc.Utf8);
+                    if (!d) { showToast('Decryption failed — wrong key?', true); document.getElementById('out-aes').value=''; return; }
+                    document.getElementById('out-aes').value = d;
+                    logAction('AES Decrypt', 'Decrypted successfully');
+                    showToast('AES decrypted');
+                }
+            } catch(e) { showToast('AES error: ' + e.message, true); }
+        }
+    </script>
+</body>
+</html>

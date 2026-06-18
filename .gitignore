@@ -1,0 +1,29 @@
+# System files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Temporary files
+*.tmp
+*.log
+temp/
+scratch/
+
+# Local configuration / credentials (just in case they add any)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+private_key.pem
+public_key.pem
+stego_image.png

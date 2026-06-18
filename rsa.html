@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RSA Asymmetric Suite — SecureTools</title>
+    <meta name="description" content="Generate RSA-2048/4096 key pairs, export PEM files, encrypt and decrypt with public/private keys using the Web Crypto API.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="motion.css">
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="common.js" defer></script>
+    <script src="motion.js" defer></script>
+</head>
+<body>
+    <div class="preloader" id="preloader"><div class="preloader-brand">SecureTools</div><div class="preloader-bar-track"><div class="preloader-bar"></div></div></div>
+    <div class="header"></div>
+    <div class="main-content">
+        <div class="container">
+            <h1>RSA Asymmetric Suite</h1>
+            <p class="subtitle">Generate key pairs, export PEM files, and perform public-key encryption — all via the native Web Crypto API.</p>
+
+            <div class="nav-tabs">
+                <button id="tab-gen" class="active" onclick="sw('gen')">Key Generator</button>
+                <button id="tab-enc" onclick="sw('enc')">Encrypt</button>
+                <button id="tab-dec" onclick="sw('dec')">Decrypt</button>
+            </div>
+
+            <div id="view-gen">
+                <h2>Generate Key Pair</h2>
+                <div class="between">
+                    <label>Key size: <select id="rsa-bits" style="width:140px;padding:6px"><option value="2048">2048 bits</option><option value="4096">4096 bits</option></select></label>
+                    <button class="btn-primary" onclick="genKeys()">Generate</button>
+                </div>
+                <div class="form-group">
+                    <h3>Public Key <div><button class="btn-copy" onclick="copyToClipboard('pub-pem')">Copy</button> <button class="btn-copy" onclick="dl('pub-pem','public_key.pem')">Download</button></div></h3>
+                    <textarea id="pub-pem" readonly rows="6" placeholder="Public key PEM..." style="font-size:11px"></textarea>
+                </div>
+                <div class="form-group">
+                    <h3>Private Key <div><button class="btn-copy" onclick="copyToClipboard('priv-pem')">Copy</button> <button class="btn-copy" onclick="dl('priv-pem','private_key.pem')">Download</button></div></h3>
+                    <textarea id="priv-pem" readonly rows="8" placeholder="Private key PEM..." style="font-size:11px;color:var(--warning)"></textarea>
+                </div>
+            </div>
+
+            <div id="view-enc" style="display:none">
+                <h2>Encrypt with Public Key</h2>
+                <div class="form-group"><h3>Recipient's Public Key (PEM)</h3><textarea id="enc-pubkey" rows="5" placeholder="Paste public key PEM..." style="font-size:11px"></textarea></div>
+                <div class="form-group"><h3>Plaintext Message</h3><textarea id="enc-plain" rows="3" placeholder="Secret message..."></textarea></div>
+                <div style="text-align:right;margin-bottom:16px"><button class="btn-primary" onclick="rsaEnc()">Encrypt</button></div>
+                <div class="form-group"><h3>Ciphertext <button class="btn-copy" onclick="copyToClipboard('enc-cipher')">Copy</button></h3><textarea id="enc-cipher" readonly rows="3" placeholder="Encrypted output..." style="color:var(--accent)"></textarea></div>
+            </div>
+
+            <div id="view-dec" style="display:none">
+                <h2>Decrypt with Private Key</h2>
+                <div class="form-group"><h3>Your Private Key (PEM)</h3><textarea id="dec-privkey" rows="6" placeholder="Paste private key PEM..." style="font-size:11px;color:var(--warning)"></textarea></div>
+                <div class="form-group"><h3>Ciphertext (Base64)</h3><textarea id="dec-cipher" rows="3" placeholder="Paste ciphertext..."></textarea></div>
+                <div style="text-align:right;margin-bottom:16px"><button class="btn-secondary" onclick="rsaDec()">Decrypt</button></div>
+                <div class="form-group"><h3>Plaintext <button class="btn-copy" onclick="copyToClipboard('dec-plain')">Copy</button></h3><textarea id="dec-plain" readonly rows="3" placeholder="Decrypted output..." style="color:var(--success)"></textarea></div>
+            </div>
+
+            <div class="info">
+                <h4>About RSA</h4>
+                <p><b>Asymmetric</b> — Two keys: anyone encrypts with your public key, only you decrypt with your private key.</p>
+                <p><b>Web Crypto API</b> — Hardware-accelerated, built into your browser. Nothing leaves your device.</p>
+                <p><b>Key sizes</b> — 2048-bit is standard. 4096-bit offers stronger long-term security but is slower to generate.</p>
+            </div>
+        </div>
+    </div>
+    <div class="footer"></div>
+
+    <script>
+        function sw(v) { ['gen','enc','dec'].forEach(k => { document.getElementById('view-'+k).style.display=k===v?'block':'none'; document.getElementById('tab-'+k).classList.toggle('active',k===v); }); }
+
+        function ab2b64(buf) { let b=''; new Uint8Array(buf).forEach(x=>b+=String.fromCharCode(x)); return btoa(b); }
+        function s2ab(s) { const b=new ArrayBuffer(s.length),v=new Uint8Array(b); for(let i=0;i<s.length;i++) v[i]=s.charCodeAt(i); return b; }
+        function fmtPEM(b64) { const l=[]; for(let i=0;i<b64.length;i+=64) l.push(b64.slice(i,i+64)); return l.join('\n'); }
+
+        async function genKeys() {
+            const bits = +document.getElementById('rsa-bits').value;
+            showToast('Generating ' + bits + '-bit key pair...');
+            try {
+                await new Promise(r=>setTimeout(r,50));
+                const kp = await crypto.subtle.generateKey({name:'RSA-OAEP',modulusLength:bits,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['encrypt','decrypt']);
+                const pub = await crypto.subtle.exportKey('spki',kp.publicKey);
+                const priv = await crypto.subtle.exportKey('pkcs8',kp.privateKey);
+                document.getElementById('pub-pem').value = '-----BEGIN PUBLIC KEY-----\n'+fmtPEM(ab2b64(pub))+'\n-----END PUBLIC KEY-----';
+                document.getElementById('priv-pem').value = '-----BEGIN PRIVATE KEY-----\n'+fmtPEM(ab2b64(priv))+'\n-----END PRIVATE KEY-----';
+                logAction('RSA Generate', bits + '-bit key pair generated');
+                showToast('Key pair generated');
+            } catch(e) { showToast('Generation failed: '+e.message,true); }
+        }
+
+        async function importPub(pem) {
+            const b64=pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
+            return crypto.subtle.importKey('spki',s2ab(atob(b64)),{name:'RSA-OAEP',hash:'SHA-256'},true,['encrypt']);
+        }
+
+        async function importPriv(pem) {
+            const b64=pem.replace(/-----[^-]+-----/g,'').replace(/\s/g,'');
+            return crypto.subtle.importKey('pkcs8',s2ab(atob(b64)),{name:'RSA-OAEP',hash:'SHA-256'},true,['decrypt']);
+        }
+
+        async function rsaEnc() {
+            const pem=document.getElementById('enc-pubkey').value.trim(), txt=document.getElementById('enc-plain').value;
+            if(!pem){showToast('Paste public key',true);return;} if(!txt){showToast('Enter message',true);return;}
+            try {
+                const key=await importPub(pem);
+                const enc=await crypto.subtle.encrypt({name:'RSA-OAEP'},key,new TextEncoder().encode(txt));
+                document.getElementById('enc-cipher').value=ab2b64(enc);
+                logAction('RSA Encrypt','Encrypted '+txt.length+' chars');
+                showToast('Encrypted');
+            } catch(e) { showToast('Encryption failed',true); }
+        }
+
+        async function rsaDec() {
+            const pem=document.getElementById('dec-privkey').value.trim(), b64=document.getElementById('dec-cipher').value.trim();
+            if(!pem){showToast('Paste private key',true);return;} if(!b64){showToast('Enter ciphertext',true);return;}
+            try {
+                const key=await importPriv(pem);
+                const dec=await crypto.subtle.decrypt({name:'RSA-OAEP'},key,s2ab(atob(b64)));
+                document.getElementById('dec-plain').value=new TextDecoder().decode(dec);
+                logAction('RSA Decrypt','Decrypted successfully');
+                showToast('Decrypted');
+            } catch(e) { showToast('Decryption failed — wrong key?',true); }
+        }
+
+        function dl(id,fn) {
+            const v=document.getElementById(id).value;
+            if(!v){showToast('Nothing to download',true);return;}
+            const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([v],{type:'text/plain'})); a.download=fn; a.click(); URL.revokeObjectURL(a.href);
+            showToast('Downloaded '+fn);
+        }
+    </script>
+</body>
+</html>

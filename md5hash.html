@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptographic Hashing — SecureTools</title>
+    <meta name="description" content="Generate MD5, SHA-1, SHA-256, SHA-512 hashes and verify local file checksums offline.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="motion.css">
+    <script src="AEScrypto.js"></script>
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="common.js" defer></script>
+    <script src="motion.js" defer></script>
+</head>
+<body>
+    <div class="preloader" id="preloader"><div class="preloader-brand">SecureTools</div><div class="preloader-bar-track"><div class="preloader-bar"></div></div></div>
+    <div class="header"></div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Cryptographic Hashing</h1>
+            <p class="subtitle">Generate one-way digests from text or compute file checksums locally.</p>
+
+            <div class="nav-tabs">
+                <button id="tab-text" class="active" onclick="switchMode('text')">Text Input</button>
+                <button id="tab-file" onclick="switchMode('file')">File Checksum</button>
+            </div>
+
+            <div style="display:flex;gap:6px;justify-content:center;margin-bottom:24px;flex-wrap:wrap">
+                <span style="align-self:center;font-size:12px;color:var(--text-tertiary);font-weight:600;margin-right:4px">Algorithm:</span>
+                <button id="btn-md5" class="btn-copy" onclick="setAlgo('MD5')" style="padding:5px 14px;border-radius:20px">MD5</button>
+                <button id="btn-sha1" class="btn-copy" onclick="setAlgo('SHA1')" style="padding:5px 14px;border-radius:20px">SHA-1</button>
+                <button id="btn-sha256" class="btn-copy active" onclick="setAlgo('SHA256')" style="padding:5px 14px;border-radius:20px;background:var(--primary);color:#fff">SHA-256</button>
+                <button id="btn-sha512" class="btn-copy" onclick="setAlgo('SHA512')" style="padding:5px 14px;border-radius:20px">SHA-512</button>
+            </div>
+
+            <div id="text-mode">
+                <div class="form-group"><h3>Input Text</h3><textarea id="text-input" placeholder="Enter text to hash..." rows="5"></textarea></div>
+                <div style="text-align:right;margin-bottom:16px"><button class="btn-primary" onclick="hashText()">Generate Hash</button></div>
+            </div>
+
+            <div id="file-mode" style="display:none">
+                <div id="drop-zone" class="drop-zone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="event.preventDefault();this.classList.remove('dragover');loadFile(event.dataTransfer.files[0])" onclick="document.getElementById('file-input').click()">
+                    <div class="drop-zone-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    </div>
+                    <span class="drop-zone-text" id="drop-label">Drop a file here or <b>click to browse</b></span>
+                    <input type="file" id="file-input" style="display:none" onchange="loadFile(this.files[0])">
+                </div>
+                <div id="file-info" style="display:none;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:16px;font-size:13px">
+                    <p>File: <strong id="file-name" style="color:var(--accent)"></strong> &middot; Size: <strong id="file-size"></strong></p>
+                </div>
+                <div style="text-align:right;margin-bottom:16px"><button class="btn-primary" id="btn-hash-file" onclick="hashFile()" disabled>Hash File</button></div>
+            </div>
+
+            <div class="form-group">
+                <h3>Hash Result <span id="algo-label" style="font-size:11px;color:var(--primary);font-weight:600">(SHA-256)</span> <button class="btn-copy" onclick="copyToClipboard('hash-result')">Copy</button></h3>
+                <textarea id="hash-result" readonly placeholder="Hash digest..." rows="2" style="font-size:14px;color:var(--success)"></textarea>
+            </div>
+
+            <div style="text-align:right;margin-top:12px"><button class="btn-clear" onclick="clearAll()">Clear</button></div>
+
+            <div class="info">
+                <h4>Hash algorithms</h4>
+                <p><b>MD5</b> — 128-bit, deprecated for security. <b>SHA-1</b> — 160-bit, deprecated. <b>SHA-256</b> — 256-bit, widely used. <b>SHA-512</b> — 512-bit, maximum strength.</p>
+            </div>
+        </div>
+    </div>
+    <div class="footer"></div>
+
+    <script>
+        let algo = 'SHA256', selFile = null;
+
+        function switchMode(m) {
+            document.getElementById('text-mode').style.display = m==='text'?'block':'none';
+            document.getElementById('file-mode').style.display = m==='file'?'block':'none';
+            document.getElementById('tab-text').classList.toggle('active', m==='text');
+            document.getElementById('tab-file').classList.toggle('active', m==='file');
+        }
+
+        function setAlgo(a) {
+            algo = a;
+            ['MD5','SHA1','SHA256','SHA512'].forEach(k => {
+                const b = document.getElementById('btn-'+k.toLowerCase());
+                if (b) { b.style.background = k===a?'var(--primary)':''; b.style.color = k===a?'#fff':''; }
+            });
+            document.getElementById('algo-label').textContent = '(' + {MD5:'MD5',SHA1:'SHA-1',SHA256:'SHA-256',SHA512:'SHA-512'}[a] + ')';
+        }
+
+        function hashText() {
+            const v = document.getElementById('text-input').value;
+            if (!v) { showToast('Enter text', true); return; }
+            if (typeof CryptoJS==='undefined') { showToast('CryptoJS not loaded', true); return; }
+            const fn = { MD5:CryptoJS.MD5, SHA1:CryptoJS.SHA1, SHA256:CryptoJS.SHA256, SHA512:CryptoJS.SHA512 };
+            document.getElementById('hash-result').value = fn[algo](v).toString();
+            logAction('Hash Text', algo + ' digest');
+            showToast('Hash generated');
+        }
+
+        function loadFile(f) {
+            if (!f) return;
+            if (f.size > 100*1024*1024) { showToast('File exceeds 100MB limit', true); return; }
+            selFile = f;
+            document.getElementById('file-name').textContent = f.name;
+            document.getElementById('file-size').textContent = fmtB(f.size);
+            document.getElementById('file-info').style.display = 'block';
+            document.getElementById('drop-label').innerHTML = 'Loaded: <b>' + f.name + '</b>';
+            document.getElementById('btn-hash-file').disabled = false;
+            showToast('File loaded');
+        }
+
+        function hashFile() {
+            if (!selFile) return;
+            showToast('Computing hash...');
+            const r = new FileReader();
+            r.onload = function(e) {
+                try {
+                    const wa = ab2wa(e.target.result);
+                    const fn = { MD5:CryptoJS.MD5, SHA1:CryptoJS.SHA1, SHA256:CryptoJS.SHA256, SHA512:CryptoJS.SHA512 };
+                    document.getElementById('hash-result').value = fn[algo](wa).toString();
+                    logAction('Hash File', algo + ' checksum of ' + selFile.name);
+                    showToast('File hash generated');
+                } catch(err) { showToast('Error: ' + err.message, true); }
+            };
+            r.readAsArrayBuffer(selFile);
+        }
+
+        function ab2wa(ab) {
+            const u8 = new Uint8Array(ab), w = [];
+            for (let i = 0; i < u8.length; i += 4) w.push((u8[i]<<24)|(u8[i+1]<<16)|(u8[i+2]<<8)|u8[i+3]);
+            return CryptoJS.lib.WordArray.create(w, u8.length);
+        }
+
+        function fmtB(b) {
+            if (!b) return '0 B';
+            const k = 1024, s = ['B','KB','MB','GB'];
+            const i = Math.floor(Math.log(b)/Math.log(k));
+            return (b/Math.pow(k,i)).toFixed(1)+' '+s[i];
+        }
+
+        function clearAll() {
+            document.getElementById('text-input').value = '';
+            document.getElementById('hash-result').value = '';
+            if (document.getElementById('file-input')) document.getElementById('file-input').value = '';
+            document.getElementById('file-info').style.display = 'none';
+            document.getElementById('drop-label').innerHTML = 'Drop a file here or <b>click to browse</b>';
+            document.getElementById('btn-hash-file').disabled = true;
+            selFile = null;
+            showToast('Cleared');
+        }
+    </script>
+</body>
+</html>

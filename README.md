@@ -23,5 +23,5 @@ Built with a minimalist, high-end engineering design system featuring fluid moti
 ## Getting Started
 
 To run the application locally:
-1. Clone the repository: `git clone https://github.com/your-username/securetools.git`
+1. Clone the repository: `git clone https://github.com/your-username/secure-tools.git`
 2. Open `index.html` in any modern web browser or serve it using a local static file server.
